@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TripD - Mobile Trip Vault</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- APP HEADER -->
+    <header class="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+                <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-600/30">
+                    <i data-lucide="plane-takeoff" class="w-5 h-5"></i>
+                </div>
+                <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
+                    TripD
+                    <span id="sync-status" class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-normal">Live Sync</span>
+                </h1>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <div id="user-status-badge" class="hidden flex items-center text-[11px] bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700 text-slate-300">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span>
+                    <span id="user-role-text">Member</span>
+                </div>
+                <button id="logout-btn" onclick="logout()" class="hidden bg-red-500/10 text-red-400 border border-red-500/30 p-1.5 rounded-xl transition">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN MOBILE CONTAINER -->
+    <main class="max-w-md w-full mx-auto p-4 flex-grow mb-16">
+
+        <!-- AUTH OVERLAY / LOGIN CONTAINER -->
+        <div id="auth-section" class="my-6">
+            <div class="glass-panel p-6 rounded-3xl shadow-2xl text-slate-100 space-y-5">
+                
+                <div class="text-center">
+                    <div class="inline-flex bg-indigo-600/10 text-indigo-400 p-3 rounded-2xl mb-2">
+                        <i data-lucide="shield-check" class="w-7 h-7"></i>
+                    </div>
+                    <h2 class="text-xl font-bold">Welcome to TripD</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Enter PIN or Passcode to access trip vault</p>
+                </div>
+
+                <!-- Auth Mode Tabs -->
+                <div class="flex p-1 bg-slate-800 rounded-2xl border border-slate-700/50">
+                    <button id="tab-member-auth" onclick="switchAuthTab('member')" class="flex-1 py-2 text-xs font-semibold rounded-xl transition bg-indigo-600 text-white shadow">Member Access</button>
+                    <button id="tab-leader-auth" onclick="switchAuthTab('leader')" class="flex-1 py-2 text-xs font-semibold rounded-xl transition text-slate-400 hover:text-white">Leader Panel</button>
+                </div>
+
+                <!-- Member Access Form -->
+                <form id="member-auth-form" onsubmit="handleMemberLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Group Access PIN</label>
+                        <input type="password" id="input-group-pin" maxlength="6" required placeholder="Enter PIN" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center text-xl tracking-widest text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 active:bg-indigo-700 text-white py-3 rounded-xl font-semibold shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 text-sm">
+                        <span>Enter Vault</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </form>
+
+                <!-- Leader Access Form -->
+                <form id="leader-auth-form" onsubmit="handleLeaderLogin(event)" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Leader Passcode</label>
+                        <input type="password" id="input-leader-passcode" required placeholder="Enter Passcode" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center text-xl tracking-widest text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <button type="submit" class="w-full bg-purple-600 active:bg-purple-700 text-white py-3 rounded-xl font-semibold shadow-lg shadow-purple-600/30 transition flex items-center justify-center gap-2 text-sm">
+                        <span>Access Leader Panel</span>
+                        <i data-lucide="crown" class="w-4 h-4"></i>
+                    </button>
+                </form>
+
+                <div id="auth-error" class="text-center text-xs text-red-400 bg-red-500/10 border border-red-500/20 py-2 rounded-xl hidden"></div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD CONTAINER -->
+        <div id="dashboard-section" class="space-y-5 hidden">
+
+            <!-- SECTION 1: TICKETS -->
+            <section id="section-tickets" class="space-y-4">
+                <div class="flex justify-between items-center bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div>
+                        <h2 class="text-base font-bold flex items-center gap-1.5">
+                            <i data-lucide="ticket" class="text-indigo-400 w-4 h-4"></i> Tickets & Passes
+                        </h2>
+                        <p class="text-[11px] text-slate-400">Boarding tickets & documents</p>
+                    </div>
+                    <button onclick="openModal('upload-ticket-modal')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1 shadow-md">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> PDF
+                    </button>
+                </div>
+                <div id="tickets-grid" class="space-y-3"></div>
+            </section>
+
+            <!-- SECTION 2: EXPENSES -->
+            <section id="section-expenses" class="space-y-4 hidden">
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-center">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase">Total</p>
+                        <h3 id="exp-total-amount" class="text-base font-bold text-emerald-400 mt-0.5">₹0.00</h3>
+                    </div>
+                    <div class="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-center">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase">Members</p>
+                        <h3 id="exp-member-count" class="text-base font-bold text-indigo-400 mt-0.5">0</h3>
+                    </div>
+                    <div class="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-center">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase">Per Person</p>
+                        <h3 id="exp-per-person" class="text-base font-bold text-amber-400 mt-0.5">₹0.00</h3>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div>
+                        <h2 class="text-base font-bold">Expense History</h2>
+                        <p class="text-[11px] text-slate-400">Live automatic division ledger</p>
+                    </div>
+                    <button onclick="openModal('add-expense-modal')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1 shadow-md">
+                        <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Add
+                    </button>
+                </div>
+
+                <div class="bg-slate-900/40 p-3 rounded-2xl border border-slate-800 space-y-2">
+                    <h3 class="text-xs font-semibold text-slate-300">Member Settlements</h3>
+                    <div id="expenses-balances-list" class="grid grid-cols-1 gap-2"></div>
+                </div>
+
+                <div class="bg-slate-900/40 rounded-2xl border border-slate-800 divide-y divide-slate-800" id="expenses-history-list"></div>
+            </section>
+
+            <!-- SECTION 3: MEMBERS & ID -->
+            <section id="section-members" class="space-y-4 hidden">
+                <div class="flex justify-between items-center bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div>
+                        <h2 class="text-base font-bold flex items-center gap-1.5">
+                            <i data-lucide="shield-check" class="text-blue-400 w-4 h-4"></i> Members & Documents
+                        </h2>
+                        <p class="text-[11px] text-slate-400">Identity vault storage</p>
+                    </div>
+                    <button onclick="openModal('add-member-modal')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1 shadow-md">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Add Member
+                    </button>
+                </div>
+                <div id="members-list-grid" class="space-y-3"></div>
+            </section>
+
+            <!-- SECTION 4: TRIP PHOTOS (Supports Bulk 500+ Upload) -->
+            <section id="section-photos" class="space-y-4 hidden">
+                <div class="flex justify-between items-center bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div>
+                        <h2 class="text-base font-bold flex items-center gap-1.5">
+                            <i data-lucide="image" class="text-pink-400 w-4 h-4"></i> Trip Photos
+                        </h2>
+                        <p class="text-[11px] text-slate-400">Bulk upload up to 500 photos</p>
+                    </div>
+                    <button onclick="openModal('upload-photo-modal')" class="bg-pink-600 hover:bg-pink-500 text-white px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1 shadow-md">
+                        <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Upload Bulk
+                    </button>
+                </div>
+                <div id="photos-grid" class="grid grid-cols-2 gap-3"></div>
+            </section>
+
+            <!-- SECTION 5: LEADER PANEL -->
+            <section id="section-leader" class="space-y-4 hidden">
+                <div class="bg-purple-900/20 border border-purple-500/30 p-4 rounded-2xl">
+                    <h2 class="text-base font-bold text-purple-300 flex items-center gap-1.5">
+                        <i data-lucide="crown" class="w-4 h-4"></i> Leader Panel
+                    </h2>
+                    <p class="text-xs text-purple-200/70 mt-0.5">Manage PIN, passcode & activity logs</p>
+                </div>
+
+                <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl space-y-3">
+                    <h3 class="text-xs font-bold text-slate-200">Update Access Credentials</h3>
+                    <form onsubmit="handleUpdateLeaderCredentials(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">New Shared Group PIN</label>
+                            <input type="text" id="leader-new-pin" maxlength="6" placeholder="e.g. 123456" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">New Leader Passcode</label>
+                            <input type="password" id="leader-new-passcode" placeholder="New Passcode" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                        </div>
+                        <button type="submit" class="w-full bg-purple-600 text-white py-2 rounded-xl text-xs font-semibold">Update Credentials</button>
+                    </form>
+                </div>
+
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-3 space-y-2">
+                    <h3 class="text-xs font-semibold text-slate-200">Audit Activity History</h3>
+                    <div id="activity-log-list" class="divide-y divide-slate-800 max-h-48 overflow-y-auto"></div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- MOBILE BOTTOM NAVIGATION BAR -->
+    <nav id="mobile-bottom-nav" class="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 hidden">
+        <div class="max-w-md mx-auto flex items-center justify-around">
+            <button id="nav-tickets" onclick="setActiveTab('tickets')" class="flex flex-col items-center py-1 px-3 rounded-xl text-[10px] font-medium text-indigo-400">
+                <i data-lucide="ticket" class="w-5 h-5 mb-0.5"></i>
+                <span>Tickets</span>
+            </button>
+            <button id="nav-expenses" onclick="setActiveTab('expenses')" class="flex flex-col items-center py-1 px-3 rounded-xl text-[10px] font-medium text-slate-400">
+                <i data-lucide="wallet" class="w-5 h-5 mb-0.5"></i>
+                <span>Expenses</span>
+            </button>
+            <button id="nav-members" onclick="setActiveTab('members')" class="flex flex-col items-center py-1 px-3 rounded-xl text-[10px] font-medium text-slate-400">
+                <i data-lucide="id-card" class="w-5 h-5 mb-0.5"></i>
+                <span>Members</span>
+            </button>
+            <button id="nav-photos" onclick="setActiveTab('photos')" class="flex flex-col items-center py-1 px-3 rounded-xl text-[10px] font-medium text-slate-400">
+                <i data-lucide="image" class="w-5 h-5 mb-0.5"></i>
+                <span>Photos</span>
+            </button>
+            <button id="nav-leader" onclick="setActiveTab('leader')" class="flex flex-col items-center py-1 px-3 rounded-xl text-[10px] font-medium text-purple-400">
+                <i data-lucide="crown" class="w-5 h-5 mb-0.5"></i>
+                <span>Leader</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MODALS -->
+    <div id="upload-ticket-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-xs w-full p-5 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold">Upload Ticket PDF</h3>
+                <button onclick="closeModal('upload-ticket-modal')" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form onsubmit="handleUploadTicket(event)" class="space-y-3">
+                <input type="text" id="ticket-title" required placeholder="Ticket Title (e.g. Flight)" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                <input type="text" id="ticket-owner" required placeholder="Passenger Name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                <input type="file" id="ticket-file" accept=".pdf,image/*" required class="w-full text-xs text-slate-400">
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-xl text-xs font-semibold">Upload</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="add-expense-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-xs w-full p-5 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold">Add Expense</h3>
+                <button onclick="closeModal('add-expense-modal')" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form onsubmit="handleAddExpense(event)" class="space-y-3">
+                <input type="text" id="exp-title" required placeholder="Description (e.g. Dinner)" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                <input type="number" id="exp-amount" min="1" step="any" required placeholder="Amount (₹)" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                <select id="exp-paid-by" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"></select>
+                <button type="submit" class="w-full bg-emerald-600 text-white py-2 rounded-xl text-xs font-semibold">Save Expense</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="add-member-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-xs w-full p-5 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold">Add Member</h3>
+                <button onclick="closeModal('add-member-modal')" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form onsubmit="handleAddMember(event)" class="space-y-3">
+                <input type="text" id="member-name" required placeholder="Full Name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                <select id="member-role" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                    <option value="Member">Member</option>
+                    <option value="Co-Leader">Co-Leader</option>
+                </select>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-xl text-xs font-semibold">Add Member</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="upload-aadhaar-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-xs w-full p-5 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold">Upload Identity Doc</h3>
+                <button onclick="closeModal('upload-aadhaar-modal')" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form onsubmit="handleUploadAadhaar(event)" class="space-y-3">
+                <input type="hidden" id="target-member-id">
+                <input type="file" id="aadhaar-file" accept="image/*,.pdf" required class="w-full text-xs text-slate-400">
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-xl text-xs font-semibold">Upload ID</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Upload Bulk Photos Modal (Up to 500+ photos) -->
+    <div id="upload-photo-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-xs w-full p-5 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold">Bulk Upload Photos</h3>
+                <button onclick="closeModal('upload-photo-modal')" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form onsubmit="handleUploadPhoto(event)" class="space-y-3">
+                <input type="file" id="trip-photo-file" accept="image/*" multiple required class="w-full text-xs text-slate-400">
+                <p class="text-[10px] text-slate-400">You can select up to 500 photos at once.</p>
+                <button type="submit" class="w-full bg-pink-600 text-white py-2 rounded-xl text-xs font-semibold">Upload Photos</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- SCRIPT -->
+    <script>
+        let state = {
+            currentUserRole: null,
+            groupPin: '1234',
+            leaderPasscode: '23092004',
+            members: [],
+            tickets: [],
+            expenses: [],
+            photos: [],
+            activityLogs: []
+        };
+
+        let ws;
+        function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    document.getElementById('sync-status').innerText = 'Live Synced';
+                    document.getElementById('sync-status').className = 'text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-normal';
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'INIT_STATE' || data.type === 'SYNC_STATE') {
+                        if (data.payload) {
+                            state = { ...state, ...data.payload };
+                            renderAllSections();
+                        }
+                    }
+                };
+
+                ws.onclose = () => {
+                    document.getElementById('sync-status').innerText = 'Reconnecting...';
+                    document.getElementById('sync-status').className = 'text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-normal';
+                    setTimeout(initWebSocket, 3000);
+                };
+            } catch(e) {
+                console.warn("WebSocket skipped");
+            }
+        }
+        initWebSocket();
+
+        function broadcastStateUpdate() {
+            renderAllSections();
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'UPDATE_STATE', payload: state }));
+            }
+        }
+
+        function renderAllSections() {
+            renderTickets();
+            renderExpenses();
+            renderMembers();
+            renderPhotos();
+            renderActivityLogs();
+        }
+
+        function switchAuthTab(tab) {
+            const memberBtn = document.getElementById('tab-member-auth');
+            const leaderBtn = document.getElementById('tab-leader-auth');
+            const memberForm = document.getElementById('member-auth-form');
+            const leaderForm = document.getElementById('leader-auth-form');
+
+            if (tab === 'member') {
+                memberBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-xl transition bg-indigo-600 text-white shadow';
+                leaderBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-xl transition text-slate-400 hover:text-white';
+                memberForm.classList.remove('hidden');
+                leaderForm.classList.add('hidden');
+            } else {
+                leaderBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-xl transition bg-purple-600 text-white shadow';
+                memberBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-xl transition text-slate-400 hover:text-white';
+                leaderForm.classList.remove('hidden');
+                memberForm.classList.add('hidden');
+            }
+        }
+
+        function handleMemberLogin(e) {
+            e.preventDefault();
+            const pin = document.getElementById('input-group-pin').value.trim();
+            if (pin === state.groupPin) {
+                state.currentUserRole = 'member';
+                showDashboard();
+            } else {
+                showAuthError('Invalid Group PIN');
+            }
+        }
+
+        function handleLeaderLogin(e) {
+            e.preventDefault();
+            const passcode = document.getElementById('input-leader-passcode').value.trim();
+            if (passcode === state.leaderPasscode) {
+                state.currentUserRole = 'leader';
+                showDashboard();
+                setActiveTab('leader');
+            } else {
+                showAuthError('Invalid Passcode');
+            }
+        }
+
+        function showAuthError(msg) {
+            const errBox = document.getElementById('auth-error');
+            errBox.innerText = msg;
+            errBox.classList.remove('hidden');
+        }
+
+        function showDashboard() {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.remove('hidden');
+            document.getElementById('mobile-bottom-nav').classList.remove('hidden');
+            document.getElementById('logout-btn').classList.remove('hidden');
+            document.getElementById('user-status-badge').classList.remove('hidden');
+            document.getElementById('user-role-text').innerText = state.currentUserRole === 'leader' ? 'Leader' : 'Member';
+            renderAllSections();
+            lucide.createIcons();
+        }
+
+        function logout() {
+            state.currentUserRole = null;
+            document.getElementById('auth-section').classList.remove('hidden');
+            document.getElementById('dashboard-section').classList.add('hidden');
+            document.getElementById('mobile-bottom-nav').classList.add('hidden');
+            document.getElementById('logout-btn').classList.add('hidden');
+            document.getElementById('user-status-badge').classList.add('hidden');
+        }
+
+        function setActiveTab(tabName) {
+            const tabs = ['tickets', 'expenses', 'members', 'photos', 'leader'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`nav-${t}`);
+                const sec = document.getElementById(`section-${t}`);
+                if (t === tabName) {
+                    sec.classList.remove('hidden');
+                    btn.className = `flex flex-col items-center py-1 px-3 rounded-xl text-[10px] font-medium ${t === 'leader' ? 'text-purple-400' : 'text-indigo-400'}`;
+                } else {
+                    sec.classList.add('hidden');
+                    btn.className = 'flex flex-col items-center py-1 px-3 rounded-xl text-[10px] font-medium text-slate-400';
+                }
+            });
+            lucide.createIcons();
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); lucide.createIcons(); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function addActivityLog(text) {
+            state.activityLogs.unshift({ text, time: new Date().toLocaleTimeString() });
+            if (state.activityLogs.length > 50) state.activityLogs.pop();
+        }
+
+        // Feature Handlers
+        function handleUploadTicket(e) {
+            e.preventDefault();
+            const title = document.getElementById('ticket-title').value.trim();
+            const owner = document.getElementById('ticket-owner').value.trim();
+            const file = document.getElementById('ticket-file').files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                state.tickets.push({
+                    id: 't-' + Date.now(),
+                    title, owner,
+                    fileName: file.name,
+                    fileData: evt.target.result
+                });
+                addActivityLog(`Uploaded Ticket: "${title}"`);
+                broadcastStateUpdate();
+                closeModal('upload-ticket-modal');
+                e.target.reset();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function deleteTicket(id) {
+            state.tickets = state.tickets.filter(x => x.id !== id);
+            addActivityLog(`Deleted ticket`);
+            broadcastStateUpdate();
+        }
+
+        function renderTickets() {
+            const container = document.getElementById('tickets-grid');
+            if (!state.tickets || state.tickets.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 text-center py-6">No tickets uploaded yet.</p>`;
+                return;
+            }
+            container.innerHTML = state.tickets.map(t => `
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-3 flex items-center justify-between">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-200">${t.title}</h4>
+                        <p class="text-[10px] text-slate-400">Passenger: ${t.owner}</p>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <a href="${t.fileData}" download="${t.fileName}" class="bg-indigo-600 text-white text-[10px] px-2.5 py-1.5 rounded-lg flex items-center gap-1">
+                            <i data-lucide="download" class="w-3 h-3"></i> Download
+                        </a>
+                        <button onclick="deleteTicket('${t.id}')" class="text-red-400 p-1.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function handleAddExpense(e) {
+            e.preventDefault();
+            const title = document.getElementById('exp-title').value.trim();
+            const amount = parseFloat(document.getElementById('exp-amount').value);
+            const paidBy = document.getElementById('exp-paid-by').value;
+            if (!title || isNaN(amount) || !paidBy) return;
+
+            state.expenses.push({ id: 'exp-' + Date.now(), title, amount, paidBy });
+            addActivityLog(`Added expense ₹${amount} (${title})`);
+            broadcastStateUpdate();
+            closeModal('add-expense-modal');
+            e.target.reset();
+        }
+
+        function removeExpense(id) {
+            state.expenses = state.expenses.filter(x => x.id !== id);
+            addActivityLog(`Removed expense`);
+            broadcastStateUpdate();
+        }
+
+        function renderExpenses() {
+            const paidBySelect = document.getElementById('exp-paid-by');
+            paidBySelect.innerHTML = state.members.length > 0 ? state.members.map(m => `<option value="${m.name}">${m.name}</option>`).join('') : '<option value="Leader">Leader</option>';
+
+            const total = state.expenses.reduce((sum, item) => sum + item.amount, 0);
+            const memberCount = Math.max(state.members.length, 1);
+            const perPerson = total / memberCount;
+
+            document.getElementById('exp-total-amount').innerText = `₹${total.toFixed(2)}`;
+            document.getElementById('exp-member-count').innerText = memberCount;
+            document.getElementById('exp-per-person').innerText = `₹${perPerson.toFixed(2)}`;
+
+            const historyList = document.getElementById('expenses-history-list');
+            if (state.expenses.length === 0) {
+                historyList.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">No expenses recorded yet.</p>`;
+            } else {
+                historyList.innerHTML = state.expenses.map(ex => `
+                    <div class="p-3 flex items-center justify-between">
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-200">${ex.title}</h4>
+                            <p class="text-[10px] text-slate-400">Paid by: <span class="text-indigo-400">${ex.paidBy}</span></p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-bold text-emerald-400">₹${ex.amount.toFixed(2)}</span>
+                            <button onclick="removeExpense('${ex.id}')" class="text-red-400"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const balancesList = document.getElementById('expenses-balances-list');
+            if (state.members.length === 0) {
+                balancesList.innerHTML = `<p class="text-[11px] text-slate-500">Add members to calculate splits.</p>`;
+            } else {
+                balancesList.innerHTML = state.members.map(m => {
+                    const paid = state.expenses.filter(ex => ex.paidBy === m.name).reduce((s, x) => s + x.amount, 0);
+                    const diff = paid - perPerson;
+                    const color = diff >= 0 ? 'text-emerald-400' : 'text-red-400';
+                    return `
+                        <div class="flex justify-between items-center bg-slate-900/60 px-3 py-2 rounded-xl text-xs">
+                            <span class="font-medium text-slate-200">${m.name}</span>
+                            <span class="font-bold ${color}">${diff >= 0 ? '+' : ''}₹${diff.toFixed(2)}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+            lucide.createIcons();
+        }
+
+        function handleAddMember(e) {
+            e.preventDefault();
+            const name = document.getElementById('member-name').value.trim();
+            const role = document.getElementById('member-role').value;
+            if (!name) return;
+
+            state.members.push({ id: 'm-' + Date.now(), name, role, idDoc: null, idDocName: null });
+            addActivityLog(`Added member: ${name}`);
+            broadcastStateUpdate();
+            closeModal('add-member-modal');
+            e.target.reset();
+        }
+
+        function removeMember(id) {
+            state.members = state.members.filter(x => x.id !== id);
+            addActivityLog(`Removed member`);
+            broadcastStateUpdate();
+        }
+
+        function openAadhaarModal(id) {
+            document.getElementById('target-member-id').value = id;
+            openModal('upload-aadhaar-modal');
+        }
+
+        function handleUploadAadhaar(e) {
+            e.preventDefault();
+            const memberId = document.getElementById('target-member-id').value;
+            const file = document.getElementById('aadhaar-file').files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const member = state.members.find(m => m.id === memberId);
+                if (member) {
+                    member.idDoc = evt.target.result;
+                    member.idDocName = file.name;
+                    addActivityLog(`Uploaded ID for ${member.name}`);
+                    broadcastStateUpdate();
+                }
+                closeModal('upload-aadhaar-modal');
+                e.target.reset();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function renderMembers() {
+            const grid = document.getElementById('members-list-grid');
+            if (state.members.length === 0) {
+                grid.innerHTML = `<p class="text-xs text-slate-500 text-center py-6">No members added yet. (Default member bug removed)</p>`;
+                return;
+            }
+            grid.innerHTML = state.members.map(m => `
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-100">${m.name}</h4>
+                            <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">${m.role}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            ${m.idDoc ? `
+                                <div class="flex items-center gap-1">
+                                    <a href="${m.idDoc}" target="_blank" class="bg-emerald-600/20 text-emerald-400 px-2.5 py-1 rounded-lg text-[10px] flex items-center gap-1">
+                                        <i data-lucide="eye" class="w-3 h-3"></i> View
+                                    </a>
+                                    <a href="${m.idDoc}" download="${m.idDocName || 'id-card'}" class="bg-indigo-600/20 text-indigo-400 px-2.5 py-1 rounded-lg text-[10px] flex items-center gap-1">
+                                        <i data-lucide="download" class="w-3 h-3"></i> Download
+                                    </a>
+                                </div>
+                            ` : `
+                                <button onclick="openAadhaarModal('${m.id}')" class="bg-blue-600/20 text-blue-400 px-2.5 py-1 rounded-lg text-[10px]">Upload ID</button>
+                            `}
+                            <button onclick="removeMember('${m.id}')" class="text-red-400 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // Bulk Upload up to 500+ Photos at once
+        function handleUploadPhoto(e) {
+            e.preventDefault();
+            const files = document.getElementById('trip-photo-file').files;
+            if (!files || files.length === 0) return;
+
+            let loadedCount = 0;
+            const totalFiles = files.length;
+
+            for (let i = 0; i < totalFiles; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    state.photos.push({ 
+                        id: 'p-' + Date.now() + '-' + Math.random(), 
+                        caption: file.name, 
+                        data: evt.target.result 
+                    });
+                    loadedCount++;
+                    if (loadedCount === totalFiles) {
+                        addActivityLog(`Uploaded ${totalFiles} photos in bulk`);
+                        broadcastStateUpdate();
+                        closeModal('upload-photo-modal');
+                        e.target.reset();
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function deletePhoto(id) {
+            state.photos = state.photos.filter(p => p.id !== id);
+            addActivityLog(`Deleted photo`);
+            broadcastStateUpdate();
+        }
+
+        function renderPhotos() {
+            const grid = document.getElementById('photos-grid');
+            if (state.photos.length === 0) {
+                grid.innerHTML = `<p class="text-xs text-slate-500 text-center py-6 col-span-2">No photos uploaded yet.</p>`;
+                return;
+            }
+            grid.innerHTML = state.photos.map(p => `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden relative group">
+                    <img src="${p.data}" class="w-full h-32 object-cover">
+                    <div class="p-2 flex justify-between items-center bg-slate-900/90">
+                        <span class="text-[10px] truncate text-slate-300">${p.caption}</span>
+                        <button onclick="deletePhoto('${p.id}')" class="text-red-400"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function handleUpdateLeaderCredentials(e) {
+            e.preventDefault();
+            const newPin = document.getElementById('leader-new-pin').value.trim();
+            const newPass = document.getElementById('leader-new-passcode').value.trim();
+            if (newPin) state.groupPin = newPin;
+            if (newPass) state.leaderPasscode = newPass;
+            addActivityLog(`Updated access credentials`);
+            broadcastStateUpdate();
+            alert('Credentials updated successfully!');
+            e.target.reset();
+        }
+
+        function renderActivityLogs() {
+            const list = document.getElementById('activity-log-list');
+            if (state.activityLogs.length === 0) {
+                list.innerHTML = `<p class="text-[11px] text-slate-500 py-2">No activity recorded.</p>`;
+                return;
+            }
+            list.innerHTML = state.activityLogs.map(log => `
+                <div class="py-1.5 flex justify-between text-[11px]">
+                    <span class="text-slate-300">${log.text}</span>
+                    <span class="text-slate-500">${log.time}</span>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
